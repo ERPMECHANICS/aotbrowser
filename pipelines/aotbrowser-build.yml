@@ -1,0 +1,119 @@
+# ============================================================================
+# DRAFT (Shape Z) — AOTBrowser COMPILE only. New pipeline, repo
+# ERPMECHANICS/aotbrowser (branch master). Lives in the aotbrowser repo.
+# ----------------------------------------------------------------------------
+# AOTBrowser is X++ PLUS a C# helper assembly (Arbela.Dynamics.AX.Xpp.Support)
+# that the X++ AxReferences. BuildSolution.sln compiles BOTH; PygmentSharp.Core
+# comes from nuget.org via the C# project's packages.config.
+#
+# We DELIBERATELY ignore the repo's own packages.config / nuget.config (they
+# pin newer DevALM versions from a private Arbela feed). Instead we pin the
+# SAME DevALM versions and feed (AxBuild) as MCN, so AOTBrowser's binaries are
+# compatible with the same target sandbox. <-- confirm versions vs sandbox.
+#
+# Output: RAW binaries published as artifact 'aot-bin' (NO package here).
+# ============================================================================
+name: aotbrowser-1.0.$(Build.BuildId)
+
+trigger: none           # cutover: trigger on master
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  # --- DevALM versions pinned to MCN's (one sandbox platform) ----------------
+  PlatVer: '7.0.7521.60'
+  AppVer:  '10.0.2177.37'
+  AxBuildFeed: 'https://pkgs.dev.azure.com/erpm/erpmD365/_packaging/AxBuild/nuget/v3/index.json'
+  App1Package: 'Microsoft.Dynamics.AX.Application1.DevALM.BuildXpp'
+  App2Package: 'Microsoft.Dynamics.AX.Application2.DevALM.BuildXpp'
+  AppSuitePackage: 'Microsoft.Dynamics.AX.ApplicationSuite.DevALM.BuildXpp'
+  PlatPackage: 'Microsoft.Dynamics.AX.Platform.DevALM.BuildXpp'
+  ToolsPackage: 'Microsoft.Dynamics.AX.Platform.CompilerPackage'
+  MetadataPath: '$(Build.SourcesDirectory)\Metadata'
+  NugetsPath: '$(Pipeline.Workspace)\NuGets'
+  CiPath: '$(Build.SourcesDirectory)\ci'
+
+steps:
+- checkout: self
+  fetchDepth: 1
+
+# Generate our own packages.config + nuget.config (AxBuild + nuget.org) so the
+# DevALM restore uses MCN's versions and the C# restore can reach nuget.org.
+- task: PowerShell@2
+  displayName: Write pinned packages.config / nuget.config
+  inputs:
+    targetType: inline
+    script: |
+      New-Item -ItemType Directory -Force -Path "$(CiPath)" | Out-Null
+      @"
+      <?xml version="1.0" encoding="utf-8"?>
+      <configuration>
+        <packageSources>
+          <clear />
+          <add key="AxBuild" value="$(AxBuildFeed)" />
+          <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+        </packageSources>
+      </configuration>
+      "@ | Set-Content -Encoding UTF8 "$(CiPath)\nuget.config"
+      @"
+      <?xml version="1.0" encoding="utf-8"?>
+      <packages>
+        <package id="$(PlatPackage)" version="$(PlatVer)" targetFramework="net40" />
+        <package id="$(App1Package)" version="$(AppVer)" targetFramework="net40" />
+        <package id="$(App2Package)" version="$(AppVer)" targetFramework="net40" />
+        <package id="$(AppSuitePackage)" version="$(AppVer)" targetFramework="net40" />
+        <package id="$(ToolsPackage)" version="$(PlatVer)" targetFramework="net40" />
+      </packages>
+      "@ | Set-Content -Encoding UTF8 "$(CiPath)\packages.config"
+
+- task: NuGetToolInstaller@1
+  displayName: Install NuGet 6.x
+  inputs:
+    versionSpec: '6.x'
+
+# DevALM packages (X++ compiler + ref assemblies) from AxBuild.
+- task: NuGetCommand@2
+  displayName: Restore DevALM packages (AxBuild)
+  inputs:
+    command: custom
+    arguments: 'install "$(CiPath)\packages.config" -ConfigFile "$(CiPath)\nuget.config" -OutputDirectory "$(NugetsPath)" -ExcludeVersion -Verbosity Detailed'
+
+# C# project packages (PygmentSharp.Core, ANTLR, ...) from nuget.org.
+- task: NuGetCommand@2
+  displayName: Restore C# solution packages
+  inputs:
+    command: restore
+    restoreSolution: 'Projects/BuildSolution/BuildSolution.sln'
+    feedsToUse: config
+    nugetConfigPath: '$(CiPath)\nuget.config'
+
+# Stage checked-in binary deps + the AOTBrowser metadata into BinariesDirectory
+# (mirrors the repo's own build recipe).
+- task: CopyFiles@2
+  displayName: Stage AOTBrowser metadata
+  inputs:
+    SourceFolder: '$(MetadataPath)'
+    Contents: '**/AOTBrowser/**'
+    TargetFolder: '$(Build.BinariesDirectory)'
+
+# Compile C# + X++ together via BuildSolution.sln.
+- task: VSBuild@1
+  displayName: Compile AOTBrowser (C# + X++)
+  inputs:
+    solution: 'Projects/BuildSolution/BuildSolution.sln'
+    vsVersion: '17.0'
+    msbuildArchitecture: 'x64'
+    maximumCpuCount: true
+    msbuildArgs: >-
+      /p:BuildTasksDirectory="$(NugetsPath)\$(ToolsPackage)\DevAlm"
+      /p:MetadataDirectory="$(MetadataPath)"
+      /p:FrameworkDirectory="$(NugetsPath)\$(ToolsPackage)"
+      /p:ReferenceFolder="$(NugetsPath)\$(PlatPackage)\ref\net40;$(NugetsPath)\$(App1Package)\ref\net40;$(NugetsPath)\$(App2Package)\ref\net40;$(NugetsPath)\$(AppSuitePackage)\ref\net40;$(MetadataPath);$(Build.BinariesDirectory)"
+      /p:ReferencePath="$(NugetsPath)\$(ToolsPackage)"
+      /p:OutputDirectory="$(Build.BinariesDirectory)"
+
+# Publish RAW binaries (the assemble pipeline does the packaging).
+- publish: '$(Build.BinariesDirectory)'
+  artifact: aot-bin
+  displayName: Publish Artifact aot-bin
