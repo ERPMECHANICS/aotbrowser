@@ -8,8 +8,8 @@
 #
 # We DELIBERATELY ignore the repo's own packages.config / nuget.config (they
 # pin newer DevALM versions from a private Arbela feed). Instead we pin the
-# SAME DevALM versions and feed (AxBuild) as MCN, so AOTBrowser's binaries are
-# compatible with the same target sandbox. <-- confirm versions vs sandbox.
+# SAME DevALM versions and feed as MCN (10.0.48, AxBuildV48Org), so
+# AOTBrowser's binaries are compatible with the same target environments.
 #
 # Output: RAW binaries published as artifact 'aot-bin' (NO package here).
 # ============================================================================
@@ -21,10 +21,10 @@ pool:
   vmImage: 'windows-latest'
 
 variables:
-  # --- DevALM versions pinned to MCN's (one sandbox platform) ----------------
-  PlatVer: '7.0.7521.60'
-  AppVer:  '10.0.2177.37'
-  AxBuildFeed: 'https://pkgs.dev.azure.com/erpm/erpmD365/_packaging/AxBuild/nuget/v3/index.json'
+  # --- DevALM versions: 10.0.48 (org feed AxBuildV48Org), same as MCN ---------
+  PlatVer: '7.0.7996.109'
+  AppVer:  '10.0.2645.122'
+  AxBuildFeed: 'https://pkgs.dev.azure.com/erpm/_packaging/AxBuildV48Org/nuget/v3/index.json'
   App1Package: 'Microsoft.Dynamics.AX.Application1.DevALM.BuildXpp'
   App2Package: 'Microsoft.Dynamics.AX.Application2.DevALM.BuildXpp'
   AppSuitePackage: 'Microsoft.Dynamics.AX.ApplicationSuite.DevALM.BuildXpp'
