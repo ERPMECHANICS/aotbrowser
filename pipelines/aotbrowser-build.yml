@@ -67,14 +67,8 @@ steps:
       </packages>
       "@ | Set-Content -Encoding UTF8 "$(CiPath)\packages.config"
 
-# Cache the (multi-GB, ~12 min) DevALM restore. Key is the generated
-# packages.config content -> stable across runs, own entry (not MCN's).
-- task: Cache@2
-  displayName: Cache DevALM NuGet packages
-  inputs:
-    key: 'devalm-aot | "$(Agent.OS)" | $(CiPath)\packages.config'
-    path: '$(NugetsPath)'
-    cacheHitVar: DEVALM_CACHED
+# No Cache@2: AOTBrowser builds about once a month, so a cache entry would
+# have expired by the next run anyway. Restore straight from AxBuildV48Org.
 
 - task: NuGetToolInstaller@1
   displayName: Install NuGet 6.x
@@ -84,7 +78,6 @@ steps:
 # DevALM packages (X++ compiler + ref assemblies) from AxBuild.
 - task: NuGetCommand@2
   displayName: Restore DevALM packages (AxBuild)
-  condition: ne(variables.DEVALM_CACHED, 'true')
   inputs:
     command: custom
     arguments: 'install "$(CiPath)\packages.config" -ConfigFile "$(CiPath)\nuget.config" -OutputDirectory "$(NugetsPath)" -ExcludeVersion -Verbosity Detailed'
