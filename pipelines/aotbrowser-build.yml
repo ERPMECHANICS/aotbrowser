@@ -8,7 +8,7 @@
 #
 # We DELIBERATELY ignore the repo's own packages.config / nuget.config (they
 # pin newer DevALM versions from a private Arbela feed). Instead we pin the
-# SAME DevALM versions and feed as MCN (10.0.48, AxBuildV48Org), so
+# SAME DevALM versions and feed as MCN (10.0.47, AxBuildV47Org), so
 # AOTBrowser's binaries are compatible with the same target environments.
 #
 # Output: RAW binaries published as artifact 'aot-bin' (NO package here).
@@ -21,10 +21,10 @@ pool:
   vmImage: 'windows-latest'
 
 variables:
-  # --- DevALM versions: 10.0.48 (org feed AxBuildV48Org), same as MCN ---------
-  PlatVer: '7.0.7996.109'
-  AppVer:  '10.0.2645.122'
-  AxBuildFeed: 'https://pkgs.dev.azure.com/erpm/_packaging/AxBuildV48Org/nuget/v3/index.json'
+  # --- DevALM versions: 10.0.47 (org feed AxBuildV47Org), same as MCN ---------
+  PlatVer: '7.0.7858.111'
+  AppVer:  '10.0.2527.130'
+  AxBuildFeed: 'https://pkgs.dev.azure.com/erpm/_packaging/AxBuildV47Org/nuget/v3/index.json'
   App1Package: 'Microsoft.Dynamics.AX.Application1.DevALM.BuildXpp'
   App2Package: 'Microsoft.Dynamics.AX.Application2.DevALM.BuildXpp'
   AppSuitePackage: 'Microsoft.Dynamics.AX.ApplicationSuite.DevALM.BuildXpp'
@@ -68,7 +68,7 @@ steps:
       "@ | Set-Content -Encoding UTF8 "$(CiPath)\packages.config"
 
 # No Cache@2: AOTBrowser builds about once a month, so a cache entry would
-# have expired by the next run anyway. Restore straight from AxBuildV48Org.
+# have expired by the next run anyway. Restore straight from AxBuildV47Org.
 
 - task: NuGetToolInstaller@1
   displayName: Install NuGet 6.x
